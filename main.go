@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 )
 
@@ -13,7 +15,10 @@ type Config struct {
 	RepoMode    string `json:"repo_mode"`
 }
 
-// проверяем корректность параметров
+type PackageJSON struct {
+	Dependencies map[string]string `json:"dependencies"`
+}
+
 func (c *Config) validate() error {
 	if c.PackageName == "" {
 		return errors.New("package_name не может быть пустым")
@@ -27,30 +32,73 @@ func (c *Config) validate() error {
 	return nil
 }
 
-func main() {
-	// путь к конфигу
-	const configPath = "config.json"
-
-	file, err := os.Open(configPath)
+func loadConfig(path string) (Config, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Ошибка при открытии %s: %v\n", configPath, err)
-		os.Exit(1)
+		return Config{}, err
 	}
 	defer file.Close()
 
 	var cfg Config
 	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
-		fmt.Printf("Ошибка чтения JSON: %v\n", err)
-		os.Exit(1)
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func getPackageJSON(cfg Config) ([]byte, error) {
+	if cfg.RepoMode == "local" {
+		data, err := os.ReadFile(cfg.RepoURL)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка чтения локального файла: %v", err)
+		}
+		return data, nil
 	}
 
+	// remote
+	resp, err := http.Get(cfg.RepoURL)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка загрузки по URL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("не удалось получить файл, статус: %s", resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func main() {
+	cfg, err := loadConfig("config.json")
+	if err != nil {
+		fmt.Printf("Ошибка загрузки конфигурации: %v\n", err)
+		os.Exit(1)
+	}
 	if err := cfg.validate(); err != nil {
-		fmt.Printf("Ошибка в конфигурации: %v\n", err)
+		fmt.Printf("Ошибка проверки конфигурации: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Конфигурация успешно загружена:")
-	fmt.Printf("package_name = %s\n", cfg.PackageName)
-	fmt.Printf("repo_url = %s\n", cfg.RepoURL)
-	fmt.Printf("repo_mode = %s\n", cfg.RepoMode)
+	data, err := getPackageJSON(cfg)
+	if err != nil {
+		fmt.Printf("Ошибка получения package.json: %v\n", err)
+		os.Exit(1)
+	}
+
+	var pkg PackageJSON
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		fmt.Printf("Ошибка парсинга JSON: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(pkg.Dependencies) == 0 {
+		fmt.Println("У пакета нет прямых зависимостей.")
+		return
+	}
+
+	fmt.Printf("Прямые зависимости пакета %s:\n", cfg.PackageName)
+	for dep, version := range pkg.Dependencies {
+		fmt.Printf("- %s: %s\n", dep, version)
+	}
 }

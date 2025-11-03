@@ -1,5 +1,5 @@
 {
-  "package_name": "my-lib",
-  "repo_url": "https://example.com/repo",
-  "repo_mode": "local"
+  "package_name": "express",
+  "repo_url": "https://raw.githubusercontent.com/expressjs/express/master/package.json",
+  "repo_mode": "remote"
 }
