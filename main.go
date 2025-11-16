@@ -19,7 +19,7 @@ type Config struct {
 
 type Graph map[string][]string
 
-// читаем JSON-файл конфигурации
+// читает JSON файл конфигурации
 func loadConfig(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -39,7 +39,7 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// отправляет http запрос по указанному url для этапа 2
+// отправляет http запрос по указанному url для 2 этапа
 func loadRemotePackageJSON(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -49,6 +49,7 @@ func loadRemotePackageJSON(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// читает файлы с графами
 func loadGraph(path string) (Graph, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -61,8 +62,7 @@ func loadGraph(path string) (Graph, error) {
 	return g, nil
 }
 
-// этап 3 — DFS
-
+// этап 3 DFS
 func dfsIterative(graph Graph, start string) []string {
 	visited := make(map[string]bool)
 	stack := []string{start}
@@ -181,8 +181,6 @@ func main() {
 
 		return
 	}
-
-	// этап 3 и 4
 
 	graph, err := loadGraph(cfg.RepoURL)
 	if err != nil {
