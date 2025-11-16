@@ -19,8 +19,7 @@ type Config struct {
 
 type Graph map[string][]string
 
-// -----------------------------------------------------
-
+// читаем JSON-файл конфигурации
 func loadConfig(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -40,8 +39,7 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// -----------------------------------------------------
-
+// отправляет http запрос по указанному url для этапа 2
 func loadRemotePackageJSON(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -63,9 +61,7 @@ func loadGraph(path string) (Graph, error) {
 	return g, nil
 }
 
-// -----------------------------------------------------
-// Этап 3 — DFS (красивый компактный вывод)
-// -----------------------------------------------------
+// этап 3 — DFS
 
 func dfsIterative(graph Graph, start string) []string {
 	visited := make(map[string]bool)
@@ -93,9 +89,7 @@ func dfsIterative(graph Graph, start string) []string {
 	return result
 }
 
-// -----------------------------------------------------
-// Этап 4 — топологическая сортировка (красивый вывод)
-// -----------------------------------------------------
+// этап 4 топологическая сортировка
 
 func topologicalSort(graph Graph, start string) []string {
 	visited := make(map[string]bool)
@@ -138,10 +132,6 @@ func topologicalSort(graph Graph, start string) []string {
 	return result
 }
 
-// -----------------------------------------------------
-// MAIN
-// -----------------------------------------------------
-
 func main() {
 
 	if len(os.Args) < 2 {
@@ -162,14 +152,14 @@ func main() {
 		return
 	}
 
-	// ---------------- ЭТАП 1 ----------------
+	// этап 1
 	if cfg.Stage == 1 {
 		fmt.Println("Этап 1 — вывод параметров конфигурации:")
 		fmt.Printf("%+v\n", cfg)
 		return
 	}
 
-	// ---------------- ЭТАП 2 ----------------
+	// этап 2
 	if cfg.Stage == 2 {
 		fmt.Println("Этап 2 — прямые зависимости npm-пакета")
 
@@ -192,7 +182,7 @@ func main() {
 		return
 	}
 
-	// ---------------- ЭТАП 3 и 4 ----------------
+	// этап 3 и 4
 
 	graph, err := loadGraph(cfg.RepoURL)
 	if err != nil {
