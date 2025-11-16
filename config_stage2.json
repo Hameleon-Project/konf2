@@ -1,0 +1,7 @@
+{
+  "stage": 2,
+  "package_name": "express",
+  "repo_url": "https://raw.githubusercontent.com/expressjs/express/master/package.json",
+  "repo_mode": "remote",
+  "output_mode": ""
+}

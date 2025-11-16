@@ -1,0 +1,7 @@
+{
+  "stage": 3,
+  "package_name": "A",
+  "repo_url": "graph.json",
+  "repo_mode": "test",
+  "output_mode": "dfs"
+}

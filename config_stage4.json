@@ -1,0 +1,7 @@
+{
+  "stage": 4,
+  "package_name": "A",
+  "repo_url": "graph2.json",
+  "repo_mode": "test",
+  "output_mode": "load_order"
+}
