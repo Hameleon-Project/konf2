@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -33,8 +34,8 @@ func loadConfig(path string) (Config, error) {
 }
 
 func (c *Config) validate() error {
-	if c.Stage < 1 || c.Stage > 4 {
-		return errors.New("stage должен быть 1–4")
+	if c.Stage < 1 || c.Stage > 5 {
+		return errors.New("stage должен быть 1–5")
 	}
 	return nil
 }
@@ -132,6 +133,56 @@ func topologicalSort(graph Graph, start string) []string {
 	return result
 }
 
+// этап 5. возвращает множество вершин, достижимых из start
+func buildReachable(graph Graph, start string) map[string]bool {
+	reachable := make(map[string]bool)
+	stack := []string{start}
+
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if reachable[n] {
+			continue
+		}
+		reachable[n] = true
+
+		for _, dep := range graph[n] {
+			if !reachable[dep] {
+				stack = append(stack, dep)
+			}
+		}
+	}
+
+	return reachable
+}
+
+// строит текстовое описание графа в формате D2
+func generateD2(graph Graph, root string) string {
+	reachable := buildReachable(graph, root)
+
+	var lines []string
+
+	// Сначала объявим все достижимые узлы (чтобы одиночные тоже отрисовались)
+	for node := range reachable {
+		lines = append(lines, node)
+	}
+
+	// Потом добавим рёбра
+	for from, deps := range graph {
+		if !reachable[from] {
+			continue
+		}
+		for _, to := range deps {
+			if reachable[to] {
+				lines = append(lines, fmt.Sprintf("%s -> %s", from, to))
+			}
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func main() {
 
 	if len(os.Args) < 2 {
@@ -206,6 +257,14 @@ func main() {
 		fmt.Printf("\nПорядок загрузки начиная с %s:\n", cfg.PackageName)
 		order := topologicalSort(graph, cfg.PackageName)
 		fmt.Println(order)
+		return
+	}
+
+	//этап 5
+	if cfg.Stage == 5 {
+		fmt.Printf("\nГраф в формате D2 для корня %s:\n\n", cfg.PackageName)
+		d2 := generateD2(graph, cfg.PackageName)
+		fmt.Println(d2)
 		return
 	}
 }
