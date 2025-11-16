@@ -1,5 +1,5 @@
 {
-  "package_name": "express",
-  "repo_url": "https://raw.githubusercontent.com/expressjs/express/master/package.json",
-  "repo_mode": "remote"
+  "package_name": "A",
+  "repo_url": "graph.json",
+  "repo_mode": "test"
 }

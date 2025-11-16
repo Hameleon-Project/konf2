@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 )
 
@@ -15,10 +13,10 @@ type Config struct {
 	RepoMode    string `json:"repo_mode"`
 }
 
-type PackageJSON struct {
-	Dependencies map[string]string `json:"dependencies"`
-}
+// Тестовый граф: A: [B, C], C: [D, E], ...
+type Graph map[string][]string
 
+// Проверка корректности конфигурации
 func (c *Config) validate() error {
 	if c.PackageName == "" {
 		return errors.New("package_name не может быть пустым")
@@ -26,79 +24,102 @@ func (c *Config) validate() error {
 	if c.RepoURL == "" {
 		return errors.New("repo_url не может быть пустым")
 	}
-	if c.RepoMode != "local" && c.RepoMode != "remote" {
-		return fmt.Errorf("repo_mode должен быть 'local' или 'remote', получено: %s", c.RepoMode)
+	if c.RepoMode != "local" && c.RepoMode != "remote" && c.RepoMode != "test" {
+		return fmt.Errorf("repo_mode должен быть 'local', 'remote' или 'test'")
 	}
 	return nil
 }
 
+// Загружаем конфиг из файла
 func loadConfig(path string) (Config, error) {
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, err
 	}
-	defer file.Close()
 
 	var cfg Config
-	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
+	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
 }
 
-func getPackageJSON(cfg Config) ([]byte, error) {
-	if cfg.RepoMode == "local" {
-		data, err := os.ReadFile(cfg.RepoURL)
-		if err != nil {
-			return nil, fmt.Errorf("ошибка чтения локального файла: %v", err)
-		}
-		return data, nil
-	}
-
-	// remote
-	resp, err := http.Get(cfg.RepoURL)
+// Загружаем тестовый граф из JSON файла
+func loadGraph(path string) (Graph, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка загрузки по URL: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("не удалось получить файл, статус: %s", resp.Status)
+		return nil, fmt.Errorf("ошибка чтения файла графа: %v", err)
 	}
 
-	return io.ReadAll(resp.Body)
+	var g Graph
+	if err := json.Unmarshal(data, &g); err != nil {
+		return nil, fmt.Errorf("ошибка парсинга графа: %v", err)
+	}
+	return g, nil
+}
+
+// DFS без рекурсии — главный алгоритм Этапа 3
+func dfsIterative(graph Graph, start string) []string {
+	visited := make(map[string]bool) // уже посещённые узлы
+	stack := []string{start}         // стек вместо рекурсии
+	order := []string{}              // порядок обхода
+
+	for len(stack) > 0 {
+		// снимаем последний элемент
+		node := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if visited[node] {
+			continue
+		}
+
+		visited[node] = true
+		order = append(order, node)
+
+		// добавляем всех зависимых пакетов
+		for _, dep := range graph[node] {
+			if !visited[dep] {
+				stack = append(stack, dep)
+			}
+		}
+	}
+
+	return order
 }
 
 func main() {
 	cfg, err := loadConfig("config.json")
 	if err != nil {
-		fmt.Printf("Ошибка загрузки конфигурации: %v\n", err)
+		fmt.Println("Ошибка загрузки конфигурации:", err)
 		os.Exit(1)
 	}
+
 	if err := cfg.validate(); err != nil {
-		fmt.Printf("Ошибка проверки конфигурации: %v\n", err)
+		fmt.Println("Ошибка проверки конфигурации:", err)
 		os.Exit(1)
 	}
 
-	data, err := getPackageJSON(cfg)
+	if cfg.RepoMode != "test" {
+		fmt.Println("Этап 3: включи режим 'test' в config.json")
+		os.Exit(0)
+	}
+
+	// Загружаем тестовый граф
+	graph, err := loadGraph(cfg.RepoURL)
 	if err != nil {
-		fmt.Printf("Ошибка получения package.json: %v\n", err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	var pkg PackageJSON
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		fmt.Printf("Ошибка парсинга JSON: %v\n", err)
-		os.Exit(1)
+	// Выводим граф
+	fmt.Println("Граф зависимостей:")
+	for pkg, deps := range graph {
+		fmt.Printf("%s → %v\n", pkg, deps)
 	}
 
-	if len(pkg.Dependencies) == 0 {
-		fmt.Println("У пакета нет прямых зависимостей.")
-		return
-	}
+	// Обход DFS без рекурсии
+	fmt.Printf("\nDFS начиная с %s:\n", cfg.PackageName)
+	order := dfsIterative(graph, cfg.PackageName)
 
-	fmt.Printf("Прямые зависимости пакета %s:\n", cfg.PackageName)
-	for dep, version := range pkg.Dependencies {
-		fmt.Printf("- %s: %s\n", dep, version)
-	}
+	fmt.Println(order)
 }
